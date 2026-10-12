@@ -321,48 +321,68 @@
             if(syncPin) pushCloudData();
         }
 
+        function getSanitizedTopic(pin) {
+            return 'catcal_room_' + pin.toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
         async function pushCloudData() {
             if(!syncPin) return;
             try {
-                const binId = getBinIdFromPin(syncPin);
-                await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(appData)
+                const topic = getSanitizedTopic(syncPin);
+                const payloadStr = JSON.stringify(appData);
+                await fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    body: payloadStr
                 });
-            } catch(e) {}
+            } catch(e) { console.log('Push Error:', e); }
         }
 
         async function fetchCloudData() {
             if(!syncPin) return;
             try {
-                const binId = getBinIdFromPin(syncPin);
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
+                const topic = getSanitizedTopic(syncPin);
+                const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1&since=all`);
                 if(res.ok) {
-                    const json = await res.json();
-                    if(json.record && json.record.cats) {
-                        appData = json.record;
-                        localStorage.setItem('catcal_data', JSON.stringify(appData));
-                        render();
+                    const text = await res.text();
+                    const lines = text.trim().split('\n').filter(Boolean);
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        try {
+                            const parsedMsg = JSON.parse(lines[i]);
+                            if (parsedMsg.message) {
+                                const cloudData = JSON.parse(parsedMsg.message);
+                                if (cloudData && cloudData.cats) {
+                                    appData = cloudData;
+                                    localStorage.setItem('catcal_data', JSON.stringify(appData));
+                                    render();
+                                    break;
+                                }
+                            }
+                        } catch(e) {}
                     }
                 }
-            } catch(e) {}
-        }
-
-        function getBinIdFromPin(pin) {
-            let hash = 0;
-            for (let i = 0; i < pin.length; i++) {
-                hash = ((hash << 5) - hash) + pin.charCodeAt(i);
-                hash |= 0;
-            }
-            return 'bin_' + Math.abs(hash);
+            } catch(e) { console.log('Pull Error:', e); }
         }
 
         function handleImageUpload(input, targetId) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    document.getElementById(targetId).value = e.target.result;
+                    // Compress Image to prevent hitting payload size limits
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width, h = img.height;
+                        const maxDim = 300;
+                        if(w > maxDim || h > maxDim) {
+                            if(w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+                        }
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        document.getElementById(targetId).value = canvas.toDataURL('image/jpeg', 0.6);
+                    };
+                    img.src = e.target.result;
                 };
                 reader.readAsDataURL(input.files[0]);
             }
@@ -376,7 +396,7 @@
                 document.getElementById('syncText').innerText = 'PIN: ' + syncPin;
                 document.getElementById('syncDot').classList.add('online');
                 fetchCloudData();
-                alert('PIN gespeichert! Synchronisation gestartet.');
+                alert('PIN gespeichert! Raum verbunden.');
             } else {
                 document.getElementById('syncText').innerText = 'PIN Sync';
                 document.getElementById('syncDot').classList.remove('online');
@@ -387,13 +407,13 @@
         async function manualPush() {
             if(!syncPin) return alert('Bitte zuerst einen PIN/Raum-Code eingeben!');
             await pushCloudData();
-            alert('Daten erfolgreich in die Cloud übertragen!');
+            alert('Daten erfolgreich hochgeladen! Auf dem 2. Gerät jetzt "Empfangen" drücken.');
         }
 
         async function manualPull() {
             if(!syncPin) return alert('Bitte zuerst einen PIN/Raum-Code eingeben!');
             await fetchCloudData();
-            alert('Daten erfolgreich aus der Cloud geladen!');
+            alert('Daten erfolgreich geladen!');
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -499,19 +519,19 @@
                 <div class="chrome-card">
                     <h2>🔄 Cloud-Synchronisation</h2>
                     <p style="font-size:0.85rem; color:var(--text-muted); margin:10px 0;">
-                        Nutze auf allen deinen Geräten (iPhone & Samsung Galaxy) denselben PIN-Code, um die Daten abzugleichen.
+                        Vergib ein gemeinsames Passwort / Wort als Raum-PIN für iPhone & Samsung Galaxy (z.B. <b>katze2026</b>).
                     </p>
 
                     <label style="font-size:0.85rem; font-weight:bold;">Dein Raum-PIN / Synchronisations-Code:</label>
-                    <input type="text" id="syncPinTabInput" value="${syncPin}" placeholder="z.B. meinekatzen123">
+                    <input type="text" id="syncPinTabInput" value="${syncPin}" placeholder="z.B. katze2026">
 
                     <button class="btn btn-primary" onclick="saveSyncPinFromTab()">PIN Speichern / Verbinden</button>
                 </div>
 
                 <div class="chrome-card">
-                    <h3>Manuelle Cloud-Aktionen</h3>
+                    <h3>Manuelle Synchronisation</h3>
                     <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                        Verwende diese Buttons, um deine Daten manuell an die Cloud zu senden oder vom Partner-Handy zu laden.
+                        Verwende diese Buttons, um deine Daten direkt mit dem zweiten Handy auszutauschen:
                     </p>
 
                     <div style="display:flex; flex-direction:column; gap:10px;">
@@ -590,278 +610,3 @@
                         ${feedLogsHtml}
                     </div>
                 `;
-            });
-            return html;
-        }
-
-        function openCatDetail(catId) {
-            activeCatId = catId;
-            currentTab = 'catDetail';
-            render();
-            setTimeout(() => drawWeightChart(catId), 100);
-        }
-
-        function renderCatDetailView() {
-            const cat = appData.cats.find(c => c.id === activeCatId);
-            if(!cat) return switchTab('cats');
-
-            const eatenKcal = getTodayKcal(cat.id);
-            const remainingKcal = Math.max(0, cat.targetKcal - eatenKcal);
-
-            return `
-                <button class="btn" style="width:auto; margin-bottom:15px;" onclick="switchTab('cats')">← Zurück zur Übersicht</button>
-                
-                <div class="chrome-card">
-                    <div class="cat-tile">
-                        <img src="${cat.photo || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150'}" class="cat-avatar" style="width:85px; height:85px;">
-                        <div style="flex:1;">
-                            <h2>${cat.name}</h2>
-                            <p style="font-size:0.85rem; color:var(--text-muted);">${cat.weight} kg • ${cat.targetKcal} kcal Ziel</p>
-                            <p style="font-size:0.85rem; color:var(--text-muted);">${cat.gender} • ${cat.castrated === 'Ja' ? 'Kastriert' : 'Nicht kastriert'}</p>
-                            <p style="font-size:0.85rem; color:var(--text-muted);">Geburtstag: ${cat.birthdate || 'Nicht angegeben'}</p>
-                        </div>
-                    </div>
-                    
-                    <button class="btn" style="margin-top:15px;" onclick="editCat('${cat.id}')">✏️ Katze Bearbeiten</button>
-
-                    <div style="margin-top:15px;">
-                        <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                            <span>Verbleibend: ${remainingKcal} kcal</span>
-                            <span>Gegessen: ${eatenKcal} kcal</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="chrome-card">
-                    <h3>Gewichtsdiagramm & Verlauf</h3>
-                    <canvas id="weightChartCanvas"></canvas>
-                    <div style="display:flex; gap:10px; margin-top:15px;">
-                        <input type="number" id="newWeightInput" placeholder="Gewicht in kg" step="0.1" style="margin:0;">
-                        <button class="btn btn-primary" style="width:auto;" onclick="addWeight('${cat.id}')">Wiegung Speichern</button>
-                    </div>
-                </div>
-
-                <div class="chrome-card">
-                    <h3>Arzttermine & Erinnerungen</h3>
-                    <div style="margin:10px 0;">
-                        <input type="text" id="vetTitle" placeholder="Grund (z.B. Impfung)" style="margin-bottom:6px;">
-                        <input type="datetime-local" id="vetDate" style="margin-bottom:6px;">
-                        <button class="btn btn-primary" onclick="addVetTermin('${cat.id}')">Termin Hinzufügen</button>
-                    </div>
-                    <ul style="list-style:none; font-size:0.85rem;">
-                        ${(appData.vet.filter(v => v.catId === cat.id)).map(v => `<li style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;"><span>${v.title} (${new Date(v.date).toLocaleString('de-DE')})</span><button class="btn btn-danger" style="width:auto; padding:2px 6px; font-size:0.7rem;" onclick="confirmDelete('vet', '${v.id}')">x</button></li>`).join('') || 'Keine Termine'}
-                    </ul>
-                </div>
-
-                <div class="chrome-card">
-                    <h3>Notizen</h3>
-                    <textarea id="catNotes" style="height:80px;" onchange="saveNotes('${cat.id}', this.value)">${cat.notes || ''}</textarea>
-                    <button class="btn btn-danger" onclick="confirmDelete('cat', '${cat.id}')" style="margin-top:10px;">Katze Löschen</button>
-                </div>
-            `;
-        }
-
-        function drawWeightChart(catId) {
-            const canvas = document.getElementById('weightChartCanvas');
-            if(!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const entries = appData.weights.filter(w => w.catId === catId);
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if(entries.length < 2) {
-                ctx.fillStyle = '#8b949e';
-                ctx.font = '12px sans-serif';
-                ctx.fillText('Mindestens 2 Wiegungen für Verlauf nötig', 20, 90);
-                return;
-            }
-
-            const weights = entries.map(e => parseFloat(e.weight));
-            const minW = Math.min(...weights) - 0.5;
-            const maxW = Math.max(...weights) + 0.5;
-
-            ctx.beginPath();
-            ctx.strokeStyle = '#00f2fe';
-            ctx.lineWidth = 3;
-
-            entries.forEach((e, idx) => {
-                const x = (idx / (entries.length - 1)) * (canvas.width - 60) + 30;
-                const y = canvas.height - 40 - ((parseFloat(e.weight) - minW) / (maxW - minW)) * (canvas.height - 70);
-                if(idx === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-
-            entries.forEach((e, idx) => {
-                const x = (idx / (entries.length - 1)) * (canvas.width - 60) + 30;
-                const y = canvas.height - 40 - ((parseFloat(e.weight) - minW) / (maxW - minW)) * (canvas.height - 70);
-
-                ctx.beginPath();
-                ctx.arc(x, y, 4, 0, Math.PI * 2);
-                ctx.fillStyle = '#00f2fe';
-                ctx.fill();
-
-                let label = e.date || '';
-                if(label.includes(',')) label = label.split(',')[0];
-
-                ctx.fillStyle = '#8b949e';
-                ctx.font = '9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(label, x, canvas.height - 10);
-                ctx.fillText(e.weight + 'kg', x, y - 10);
-            });
-        }
-
-        function openCatModal() {
-            document.getElementById('catModalTitle').innerText = 'Katze anlegen';
-            document.getElementById('editCatId').value = '';
-            document.getElementById('catName').value = '';
-            document.getElementById('catWeight').value = '';
-            document.getElementById('catTargetKcal').value = '';
-            document.getElementById('catBirthdate').value = '';
-            document.getElementById('catPhotoPreview').value = '';
-            document.getElementById('catModal').classList.add('active');
-        }
-
-        function editCat(catId) {
-            const cat = appData.cats.find(c => c.id === catId);
-            if(!cat) return;
-            document.getElementById('catModalTitle').innerText = 'Katze bearbeiten';
-            document.getElementById('editCatId').value = cat.id;
-            document.getElementById('catName').value = cat.name;
-            document.getElementById('catWeight').value = cat.weight;
-            document.getElementById('catTargetKcal').value = cat.targetKcal;
-            document.getElementById('catBirthdate').value = cat.birthdate || '';
-            document.getElementById('catGender').value = cat.gender || 'Weiblich';
-            document.getElementById('catCastrated').value = cat.castrated || 'Ja';
-            document.getElementById('catPhotoPreview').value = cat.photo || '';
-            document.getElementById('catModal').classList.add('active');
-        }
-
-        function saveCatForm() {
-            const id = document.getElementById('editCatId').value;
-            const name = document.getElementById('catName').value.trim();
-            const weight = parseFloat(document.getElementById('catWeight').value);
-            const targetKcal = parseInt(document.getElementById('catTargetKcal').value);
-            const birthdate = document.getElementById('catBirthdate').value;
-            const gender = document.getElementById('catGender').value;
-            const castrated = document.getElementById('catCastrated').value;
-            const photo = document.getElementById('catPhotoPreview').value;
-
-            if(!name || !weight || !targetKcal) return alert('Bitte Name, Gewicht und Ziel-Kcal angeben!');
-
-            if(id) {
-                const cat = appData.cats.find(c => c.id === id);
-                if(cat) Object.assign(cat, { name, weight, targetKcal, birthdate, gender, castrated, photo });
-            } else {
-                appData.cats.push({ id: Date.now().toString(), name, weight, targetKcal, birthdate, gender, castrated, photo, notes: '' });
-            }
-
-            saveData();
-            closeModal('catModal');
-        }
-
-        function openFoodForm() {
-            document.getElementById('foodName').value = '';
-            document.getElementById('foodKcal').value = '';
-            document.getElementById('foodPhotoPreview').value = '';
-            document.getElementById('foodModal').classList.add('active');
-        }
-
-        function saveFoodForm() {
-            const name = document.getElementById('foodName').value.trim();
-            const category = document.getElementById('foodCategory').value;
-            const kcalPer100g = parseInt(document.getElementById('foodKcal').value);
-            const photo = document.getElementById('foodPhotoPreview').value;
-
-            if(!name || !kcalPer100g) return alert('Bitte Name und Kalorien pro 100g angeben!');
-
-            appData.foods.push({ id: Date.now().toString(), name, category, kcalPer100g, photo });
-            saveData();
-            closeModal('foodModal');
-        }
-
-        let pendingDeleteType = null, pendingDeleteId = null;
-
-        function confirmDelete(type, id) {
-            pendingDeleteType = type; pendingDeleteId = id;
-            document.getElementById('confirmTitle').innerText = 'Eintrag Löschen?';
-            document.getElementById('confirmText').innerText = 'Möchtest du diesen Eintrag wirklich löschen?';
-            document.getElementById('confirmBtn').onclick = executeDelete;
-            document.getElementById('confirmModal').classList.add('active');
-        }
-
-        function executeDelete() {
-            if(pendingDeleteType === 'cat') {
-                appData.cats = appData.cats.filter(c => c.id !== pendingDeleteId);
-                switchTab('cats');
-            } else if(pendingDeleteType === 'food') {
-                appData.foods = appData.foods.filter(f => f.id !== pendingDeleteId);
-            } else if(pendingDeleteType === 'vet') {
-                appData.vet = appData.vet.filter(v => v.id !== pendingDeleteId);
-            } else if(pendingDeleteType === 'log') {
-                appData.logs = appData.logs.filter(l => l.id !== pendingDeleteId);
-            }
-            saveData();
-            closeModal('confirmModal');
-        }
-
-        function renderFoodView() {
-            let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h2>Futterbank</h2><button class="btn btn-primary" style="width:auto;" onclick="openFoodForm()">+ Futter</button></div>';
-
-            if(appData.foods.length === 0) return html + '<div class="chrome-card" style="text-align:center;">Noch kein Futter gespeichert.</div>';
-
-            ['nass', 'trocken', 'snack'].forEach(catKey => {
-                const title = catKey === 'nass' ? '🥣 Nassfutter' : catKey === 'trocken' ? '🌾 Trockenfutter' : '🍬 Leckerlis';
-                const items = appData.foods.filter(f => f.category === catKey);
-
-                html += `<h3 style="margin:15px 0 8px 0; color:var(--text-muted);">${title}</h3>`;
-                items.forEach(food => {
-                    html += `
-                        <div class="chrome-card" style="padding:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <img src="${food.photo || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=100'}" style="width:45px; height:45px; border-radius:8px; object-fit:cover;">
-                                <div>
-                                    <b>${food.name}</b>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">${food.kcalPer100g} kcal / 100g</div>
-                                </div>
-                            </div>
-                            <button class="btn btn-danger" style="width:auto; padding:4px 8px;" onclick="confirmDelete('food', '${food.id}')">Löschen</button>
-                        </div>
-                    `;
-                });
-            });
-
-            return html;
-        }
-
-        function addWeight(catId) {
-            const val = parseFloat(document.getElementById('newWeightInput').value);
-            if(!val) return;
-
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('de-DE') + ', ' + now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-            appData.weights.push({ catId, weight: val, date: dateStr });
-            const cat = appData.cats.find(c => c.id === catId);
-            if(cat) cat.weight = val;
-            saveData();
-            setTimeout(() => drawWeightChart(catId), 50);
-        }
-
-        function addVetTermin(catId) {
-            const title = document.getElementById('vetTitle').value;
-            const date = document.getElementById('vetDate').value;
-            if(!title || !date) return;
-            appData.vet.push({ id: Date.now().toString(), catId, title, date });
-            saveData();
-        }
-
-        function saveNotes(catId, val) {
-            const cat = appData.cats.find(c => c.id === catId);
-            if(cat) { cat.notes = val; saveData(); }
-        }
-
-        init();
-    </script>
-</body>
-</html>
