@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CatCal - Quick Feed Metallic Edition</title>
+    <title>CatCal Pro - Katzen Kalorien Tracker</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
         :root {
             --bg-grad: linear-gradient(135deg, #090b0e 0%, #151921 50%, #0a0c10 100%);
             --card-bg: rgba(22, 27, 34, 0.85);
-            --card-border: rgba(255, 255, 255, 0.12);
+            --card-border-flat: rgba(255, 255, 255, 0.12);
             --accent-cyan: #00f2fe;
             --accent-cyan-glow: rgba(0, 242, 254, 0.35);
-            --accent-green: #00e676;
             --chrome-glow: linear-gradient(135deg, #ffffff 0%, #90a4ae 50%, #37474f 100%);
             --text-main: #f0f6fc;
             --text-muted: #8b949e;
             --danger: #ff4d4d;
             --warning: #ffb703;
+            --success: #00e676;
         }
 
         * {
@@ -38,9 +38,9 @@
 
         header {
             position: sticky; top: 0; z-index: 100;
-            background: rgba(10, 12, 16, 0.9);
+            background: rgba(10, 12, 16, 0.92);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--card-border-flat);
             padding: 14px 18px;
             display: flex; justify-content: space-between; align-items: center;
         }
@@ -53,153 +53,49 @@
 
         .sync-badge {
             font-size: 0.75rem; padding: 6px 12px; border-radius: 20px;
-            background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.05); border: 1px solid var(--card-border-flat);
             display: flex; align-items: center; gap: 6px; cursor: pointer;
         }
 
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
-        .sync-dot.online { background: var(--accent-green); }
+        .sync-dot.online { background: var(--success); }
 
-        .swipe-food-section {
-            background: rgba(15, 18, 24, 0.9);
-            border-bottom: 1px solid var(--card-border);
+        .quick-feed-bar {
+            background: rgba(18, 22, 29, 0.95);
+            border-bottom: 1px solid var(--card-border-flat);
             padding: 12px 16px;
-            position: sticky; top: 58px; z-index: 90;
+            overflow-x: auto;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             backdrop-filter: blur(10px);
         }
 
-        .swipe-title {
-            font-size: 0.75rem; color: var(--accent-cyan); font-weight: 800;
-            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
-            display: flex; justify-content: space-between; align-items: center;
+        .quick-feed-title {
+            font-size: 0.75rem; color: var(--text-muted); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;
         }
 
-        .swipe-container {
-            display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
-            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+        .chip-food {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--card-border-flat);
+            border-radius: 30px; padding: 6px 14px 6px 8px; cursor: pointer;
+            transition: all 0.2s; font-size: 0.8rem;
         }
 
-        .swipe-container::-webkit-scrollbar { height: 4px; }
-        .swipe-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-
-        .food-chip {
-            scroll-snap-align: start; flex: 0 0 auto;
-            display: flex; align-items: center; gap: 10px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--card-border);
-            border-radius: 14px; padding: 8px 12px; cursor: pointer;
-            transition: all 0.2s ease;
+        .chip-food.active {
+            background: rgba(0, 242, 254, 0.2); border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px var(--accent-cyan-glow); color: #fff; font-weight: 700;
         }
 
-        .food-chip.selected {
-            background: rgba(0, 242, 254, 0.15);
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 12px var(--accent-cyan-glow);
-        }
-
-        .food-chip img {
-            width: 36px; height: 36px; border-radius: 8px; object-fit: cover;
-        }
-
-        .food-chip-info {
-            display: flex; flex-direction: column;
-        }
-
-        .food-chip-name { font-size: 0.85rem; font-weight: 700; color: #fff; }
-        .food-chip-sub { font-size: 0.7rem; color: var(--text-muted); }
-
-        .container { max-width: 600px; margin: 0 auto; padding: 16px; }
-
-        .chrome-card {
-            background: var(--card-bg); border-radius: 20px;
-            border: 1px solid var(--card-border); padding: 18px; margin-bottom: 18px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6); backdrop-filter: blur(12px);
-            position: relative; overflow: hidden;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #2a3240 0%, #161b22 100%);
-            border: 1px solid rgba(255,255,255,0.2); color: var(--text-main);
-            padding: 10px 16px; border-radius: 12px; font-weight: 600;
-            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-            gap: 6px; transition: all 0.2s; font-size: 0.85rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-            color: #000; font-weight: 800; border: none;
-            box-shadow: 0 4px 15px var(--accent-cyan-glow);
-        }
-
-        .btn-danger {
-            background: rgba(255, 77, 77, 0.15); border: 1px solid var(--danger); color: var(--danger);
-        }
-
-        .cat-header { display: flex; align-items: center; gap: 14px; cursor: pointer; }
-        .cat-avatar {
-            width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
-            border: 2px solid var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan-glow); background: #111;
-        }
-
-        .allowed-grams-box {
-            background: rgba(0, 242, 254, 0.08); border: 1px dashed var(--accent-cyan);
-            border-radius: 10px; padding: 8px 12px; margin-top: 10px;
-            font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
-        .progress-bar-bg { background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden; margin: 8px 0; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-cyan), #4facfe); width: 0%; transition: width 0.4s ease; }
-        .progress-bar-fill.over { background: linear-gradient(90deg, var(--warning), var(--danger)); }
-
-        .feed-input-row {
-            display: flex; gap: 8px; margin-top: 12px; align-items: center;
-        }
-
-        .feed-input-row input {
-            flex: 1; padding: 10px; background: rgba(0,0,0,0.4);
-            border: 1px solid var(--card-border); border-radius: 10px; color: #fff;
-            font-size: 0.9rem; margin: 0;
-        }
-
-        .quick-btn-group { display: flex; gap: 4px; margin-top: 8px; }
-        .q-btn {
-            flex: 1; padding: 6px 0; font-size: 0.75rem; border-radius: 8px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--card-border);
-            color: var(--text-main); font-weight: 700; text-align: center; cursor: pointer;
-        }
-        .q-btn:active { background: var(--accent-cyan); color: #000; }
-
-        .feed-log-box {
-            margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
-            font-size: 0.8rem; color: var(--text-muted);
-        }
-
-        .feed-log-item {
-            display: flex; justify-content: space-between; align-items: center; padding: 6px 0;
-            border-bottom: 1px dashed rgba(255,255,255,0.05);
-        }
-
-        .feed-log-item:last-child { border-bottom: none; }
-
-        .delete-log-btn {
-            background: rgba(255, 77, 77, 0.2);
-            border: 1px solid var(--danger);
-            color: var(--danger);
-            border-radius: 6px;
-            padding: 2px 8px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            margin-left: 8px;
-            transition: all 0.2s;
-        }
-        .delete-log-btn:active { background: var(--danger); color: #fff; }
+        .chip-food img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
 
         nav.bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0; height: 70px;
             background: rgba(10, 12, 16, 0.92);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid var(--card-border);
+            border-top: 1px solid var(--card-border-flat);
             display: flex; justify-content: space-around; align-items: center; z-index: 100;
         }
 
@@ -212,6 +108,61 @@
         .nav-btn.active { color: var(--accent-cyan); }
         .nav-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
+        .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+        .chrome-card {
+            background: var(--card-bg); border-radius: 20px;
+            border: 1px solid var(--card-border-flat); padding: 18px; margin-bottom: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6); backdrop-filter: blur(12px);
+            position: relative; overflow: hidden;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #2a3240 0%, #161b22 100%);
+            border: 1px solid rgba(255,255,255,0.2); color: var(--text-main);
+            padding: 12px 18px; border-radius: 12px; font-weight: 600;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; width: 100%; transition: all 0.2s; font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            color: #000; font-weight: 800; border: none;
+            box-shadow: 0 4px 15px var(--accent-cyan-glow);
+        }
+
+        .btn-danger {
+            background: rgba(255, 77, 77, 0.15); border: 1px solid var(--danger); color: var(--danger);
+        }
+
+        .cat-tile { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+        .cat-avatar {
+            width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan-glow); background: #111;
+        }
+
+        .progress-bar-bg { background: rgba(255,255,255,0.08); height: 12px; border-radius: 6px; overflow: hidden; margin: 10px 0; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-cyan), #4facfe); width: 0%; transition: width 0.4s ease; }
+        .progress-bar-fill.over { background: linear-gradient(90deg, var(--warning), var(--danger)); }
+
+        .quick-feed-box {
+            display: flex; gap: 8px; margin-top: 10px; align-items: center;
+        }
+
+        .feed-log-list {
+            margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
+            font-size: 0.8rem; color: var(--text-muted);
+        }
+        .feed-log-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .delete-icon-btn {
+            background: rgba(255, 77, 77, 0.2); border: 1px solid var(--danger); color: var(--danger);
+            border-radius: 6px; padding: 2px 8px; font-weight: bold; cursor: pointer; margin-left: 8px;
+        }
+
         .modal {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 200;
@@ -219,13 +170,18 @@
         }
         .modal.active { display: flex; }
         .modal-content {
-            background: #161b22; border: 1px solid var(--card-border);
+            background: #161b22; border: 1px solid var(--card-border-flat);
             border-radius: 20px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 22px;
         }
 
         input, select, textarea {
             width: 100%; padding: 12px; background: rgba(0,0,0,0.3);
-            border: 1px solid var(--card-border); border-radius: 8px; color: #fff; margin-top: 6px; margin-bottom: 14px;
+            border: 1px solid var(--card-border-flat); border-radius: 8px; color: #fff; margin-top: 6px; margin-bottom: 14px;
+        }
+
+        .bday-alert {
+            background: rgba(255, 183, 3, 0.15); border: 1px solid var(--warning); color: var(--warning);
+            padding: 10px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
         }
 
         canvas { width: 100%; height: 180px; background: rgba(0,0,0,0.25); border-radius: 10px; margin-top: 10px; }
@@ -241,16 +197,7 @@
         </div>
     </header>
 
-    <!-- Wisch-Menü ganz oben -->
-    <div class="swipe-food-section">
-        <div class="swipe-title">
-            <span>👈 Futter Auswählen (Wisch-Menü) 👉</span>
-            <span id="selectedFoodHint" style="font-size:0.7rem; color:var(--text-muted);">Aktiv: Keins</span>
-        </div>
-        <div class="swipe-container" id="swipeFoodContainer">
-            <!-- Dynamisch befüllt -->
-        </div>
-    </div>
+    <div class="quick-feed-bar" id="quickFeedBar"></div>
 
     <div class="container" id="appContent"></div>
 
@@ -265,7 +212,7 @@
         </button>
     </nav>
 
-    <!-- Modal: Katze anlegen / bearbeiten -->
+    <!-- Modal: Katze erstellen / bearbeiten -->
     <div class="modal" id="catModal">
         <div class="modal-content">
             <h2 id="catModalTitle">Katze anlegen</h2>
@@ -299,8 +246,8 @@
                 <option value="Nein">Nein</option>
             </select>
 
-            <button class="btn btn-primary" style="width:100%;" onclick="saveCatForm()">Speichern</button>
-            <button class="btn" style="width:100%; margin-top:10px;" onclick="closeModal('catModal')">Abbrechen</button>
+            <button class="btn btn-primary" onclick="saveCatForm()">Speichern</button>
+            <button class="btn" onclick="closeModal('catModal')" style="margin-top:10px;">Abbrechen</button>
         </div>
     </div>
 
@@ -325,8 +272,8 @@
             <label>Kalorien pro 100g (kcal):</label>
             <input type="number" id="foodKcal" placeholder="z.B. 95">
 
-            <button class="btn btn-primary" style="width:100%;" onclick="saveFoodForm()">Speichern</button>
-            <button class="btn" style="width:100%; margin-top:10px;" onclick="closeModal('foodModal')">Abbrechen</button>
+            <button class="btn btn-primary" onclick="saveFoodForm()">Speichern</button>
+            <button class="btn" onclick="closeModal('foodModal')" style="margin-top:10px;">Abbrechen</button>
         </div>
     </div>
 
@@ -346,10 +293,10 @@
     <div class="modal" id="syncModal">
         <div class="modal-content">
             <h3>Geräte Synchronisieren</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 10px 0;">Gib auf iPhone & Samsung denselben PIN-Code ein, um deine Daten abzugleichen.</p>
-            <input type="text" id="syncPinInput" placeholder="z.B. 1234">
-            <button class="btn btn-primary" style="width:100%;" onclick="saveSyncPin()">Verbinden</button>
-            <button class="btn" style="width:100%; margin-top: 10px;" onclick="closeModal('syncModal')">Schließen</button>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 10px 0;">Gib auf iPhone & Samsung denselben Raum-Code ein (z.B. "meinekatzen123"), um deine Daten abzugleichen.</p>
+            <input type="text" id="syncPinInput" placeholder="z.B. meinekatzen123">
+            <button class="btn btn-primary" onclick="saveSyncPin()">Verbinden</button>
+            <button class="btn" onclick="closeModal('syncModal')" style="margin-top: 10px;">Schließen</button>
         </div>
     </div>
 
@@ -357,7 +304,7 @@
         let appData = { cats: [], foods: [], logs: [], vet: [], weights: [] };
         let currentTab = 'cats';
         let activeCatId = null;
-        let activeFoodId = null;
+        let selectedTopFoodId = null;
         let syncPin = localStorage.getItem('catcal_pin') || '';
 
         function init() {
@@ -366,9 +313,6 @@
                 document.getElementById('syncText').innerText = 'PIN: ' + syncPin;
                 document.getElementById('syncDot').classList.add('online');
                 fetchCloudData();
-            }
-            if(appData.foods.length > 0 && !activeFoodId) {
-                activeFoodId = appData.foods[0].id;
             }
             render();
         }
@@ -379,28 +323,48 @@
         }
 
         function saveData() {
+            // Instantly update Local Storage for instant UI feedback
             localStorage.setItem('catcal_data', JSON.stringify(appData));
-            if(syncPin) pushCloudData();
             render();
+            if(syncPin) pushCloudData();
         }
 
         async function pushCloudData() {
+            if(!syncPin) return;
             try {
-                await fetch(`https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/${syncPin}/catcal_db/${encodeURIComponent(JSON.stringify(appData))}`, { method: 'POST' });
+                const binId = getBinIdFromPin(syncPin);
+                await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(appData)
+                });
             } catch(e) {}
         }
 
         async function fetchCloudData() {
+            if(!syncPin) return;
             try {
-                const res = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/GetValue/${syncPin}/catcal_db`);
-                const data = await res.json();
-                if(data) {
-                    appData = JSON.parse(data);
-                    localStorage.setItem('catcal_data', JSON.stringify(appData));
-                    if(appData.foods.length > 0 && !activeFoodId) activeFoodId = appData.foods[0].id;
-                    render();
+                const binId = getBinIdFromPin(syncPin);
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
+                if(res.ok) {
+                    const json = await res.json();
+                    if(json.record && json.record.cats) {
+                        appData = json.record;
+                        localStorage.setItem('catcal_data', JSON.stringify(appData));
+                        render();
+                    }
                 }
             } catch(e) {}
+        }
+
+        function getBinIdFromPin(pin) {
+            // Generate a simple deterministic ID hash from the PIN text
+            let hash = 0;
+            for (let i = 0; i < pin.length; i++) {
+                hash = ((hash << 5) - hash) + pin.charCodeAt(i);
+                hash |= 0;
+            }
+            return 'bin_' + Math.abs(hash);
         }
 
         function handleImageUpload(input, targetId) {
@@ -458,73 +422,60 @@
             return b.getDate() === t.getDate() && b.getMonth() === t.getMonth();
         }
 
-        function renderSwipeFoodBar() {
-            const container = document.getElementById('swipeFoodContainer');
-            const hint = document.getElementById('selectedFoodHint');
-
-            if(appData.foods.length === 0) {
-                container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Noch kein Futter angelegt. Bitte unter "Futterbank" hinzufügen.</span>';
-                hint.innerText = 'Kein Futter';
-                return;
-            }
-
-            let html = '';
-            appData.foods.forEach(food => {
-                const isSelected = food.id === activeFoodId;
-                const catSymbol = food.category === 'nass' ? '🥣' : food.category === 'trocken' ? '🌾' : '🍬';
-                
-                html += `
-                    <div class="food-chip ${isSelected ? 'selected' : ''}" onclick="selectSwipeFood('${food.id}')">
-                        <img src="${food.photo || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=100'}">
-                        <div class="food-chip-info">
-                            <span class="food-chip-name">${catSymbol} ${food.name}</span>
-                            <span class="food-chip-sub">${food.kcalPer100g} kcal/100g</span>
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-
-            const currentFood = appData.foods.find(f => f.id === activeFoodId);
-            hint.innerText = currentFood ? `Aktiv: ${currentFood.name}` : 'Keins gewählt';
-        }
-
-        function selectSwipeFood(foodId) {
-            activeFoodId = foodId;
+        function selectTopFood(foodId) {
+            if(selectedTopFoodId === foodId) selectedTopFoodId = null;
+            else selectedTopFoodId = foodId;
             render();
         }
 
-        function setGramInput(catId, grams) {
-            const input = document.getElementById(`feedGramsInput_${catId}`);
-            if(input) input.value = grams;
+        function renderQuickFeedBar() {
+            const bar = document.getElementById('quickFeedBar');
+            if(appData.foods.length === 0) {
+                bar.innerHTML = '<span class="quick-feed-title">Wisch-Menü:</span> <span style="font-size:0.8rem; color:var(--text-muted);">Erstelle unten dein erstes Futter</span>';
+                return;
+            }
+
+            let html = '<span class="quick-feed-title">Wahl-Futter:</span>';
+            appData.foods.forEach(f => {
+                const isActive = selectedTopFoodId === f.id;
+                html += `
+                    <div class="chip-food ${isActive ? 'active' : ''}" onclick="selectTopFood('${f.id}')">
+                        <img src="${f.photo || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=100'}">
+                        <span>${f.name}</span>
+                    </div>
+                `;
+            });
+            bar.innerHTML = html;
         }
 
-        function submitQuickFeed(catId) {
-            if(!activeFoodId) return alert('Bitte wähle zuerst oben im Wisch-Menü ein Futter aus!');
+        function quickFeed(catId, inputElemId) {
+            const grams = parseFloat(document.getElementById(inputElemId).value);
+            if(!grams || grams <= 0) return alert('Bitte eine gültige Grammzahl eingeben!');
 
-            const input = document.getElementById(`feedGramsInput_${catId}`);
-            const grams = parseFloat(input.value);
+            let foodId = selectedTopFoodId;
+            if(!foodId) {
+                if(appData.foods.length > 0) foodId = appData.foods[0].id;
+                else return alert('Bitte erst ein Futter in der Futterbank anlegen!');
+            }
 
-            if(!grams || grams <= 0) return alert('Bitte eine gültige Gramm-Anzahl eingeben!');
-
-            const food = appData.foods.find(f => f.id === activeFoodId);
+            const food = appData.foods.find(f => f.id === foodId);
             const kcalAdded = Math.round((grams / 100) * food.kcalPer100g);
 
             appData.logs.push({
                 id: Date.now().toString(),
                 catId: catId,
-                foodId: activeFoodId,
+                foodId: foodId,
                 grams: grams,
                 kcal: kcalAdded,
                 date: new Date().toISOString()
             });
 
-            input.value = '';
+            document.getElementById(inputElemId).value = '';
             saveData();
         }
 
         function render() {
-            renderSwipeFoodBar();
+            renderQuickFeedBar();
             const content = document.getElementById('appContent');
             if(currentTab === 'cats') content.innerHTML = renderCatsView();
             else if(currentTab === 'food') content.innerHTML = renderFoodView();
@@ -536,7 +487,7 @@
             
             if(appData.cats.length === 0) return html + '<div class="chrome-card" style="text-align:center;">Noch keine Katzen eingetragen.</div>';
 
-            const activeFood = appData.foods.find(f => f.id === activeFoodId);
+            const activeTopFood = appData.foods.find(f => f.id === selectedTopFoodId) || appData.foods[0];
 
             appData.cats.forEach(cat => {
                 const eatenKcal = getTodayKcal(cat.id);
@@ -545,15 +496,15 @@
                 const isBday = checkBirthday(cat.birthdate);
                 const todayLogs = getTodayLogs(cat.id);
 
-                let allowedGramsText = 'Bitte oben Futter auswählen';
-                if(activeFood) {
-                    const gramsAllowed = Math.floor((remainingKcal / activeFood.kcalPer100g) * 100);
-                    allowedGramsText = `Noch <b>${gramsAllowed}g</b> [${activeFood.name}] heute erlaubt`;
+                let foodCalculatedText = '';
+                if(activeTopFood) {
+                    const gramsAllowed = Math.floor((remainingKcal / activeTopFood.kcalPer100g) * 100);
+                    foodCalculatedText = `<div style="font-size:0.8rem; color:var(--accent-cyan); font-weight:bold; margin-top:4px;">Noch ${gramsAllowed}g von [${activeTopFood.name}] erlaubt</div>`;
                 }
 
                 let feedLogsHtml = '';
                 if(todayLogs.length > 0) {
-                    feedLogsHtml = '<div class="feed-log-box"><b style="color:var(--text-main); display:block; margin-bottom:6px;">Heutige Fütterungen:</b>';
+                    feedLogsHtml = '<div class="feed-log-list"><b style="color:var(--text-main); display:block; margin-bottom:4px;">Heutige Fütterungen:</b>';
                     todayLogs.forEach(log => {
                         const food = appData.foods.find(f => f.id === log.foodId);
                         const foodName = food ? food.name : 'Futter';
@@ -563,30 +514,24 @@
                                 <span>🕒 ${timeStr} Uhr - ${foodName}</span>
                                 <div>
                                     <b>${log.grams}g (${log.kcal} kcal)</b>
-                                    <button class="delete-log-btn" onclick="confirmDelete('feedLog', '${log.id}')">✖</button>
+                                    <button class="delete-icon-btn" onclick="confirmDelete('log', '${log.id}')">✖</button>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                     });
                     feedLogsHtml += '</div>';
                 }
 
                 html += `
                     <div class="chrome-card">
-                        ${isBday ? '<div style="background:rgba(255, 183, 3, 0.15); border:1px solid var(--warning); color:var(--warning); padding:8px 12px; border-radius:10px; margin-bottom:12px; font-size:0.85rem;">🎉 Heute ist der Geburtstag von '+cat.name+'!</div>' : ''}
-                        
-                        <div class="cat-header" onclick="openCatDetail('${cat.id}')">
+                        ${isBday ? '<div class="bday-alert">🎉 Heute ist der Geburtstag von '+cat.name+'!</div>' : ''}
+                        <div class="cat-tile" onclick="openCatDetail('${cat.id}')">
                             <img src="${cat.photo || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150'}" class="cat-avatar">
                             <div style="flex:1;">
                                 <h3 style="font-size:1.3rem;">${cat.name}</h3>
-                                <p style="font-size:0.85rem; color:var(--text-muted);">${cat.weight} kg • ${cat.gender} • ${cat.castrated === 'Ja' ? 'Kastriert' : 'Nicht kastriert'}</p>
+                                <p style="font-size:0.85rem; color:var(--text-muted);">${cat.weight} kg • ${cat.gender} • ${cat.castrated === 'Ja' ? 'Kastriert' : 'Nicht'}</p>
+                                ${foodCalculatedText}
                             </div>
                         </div>
-
-                        <div class="allowed-grams-box">
-                            <span>${allowedGramsText}</span>
-                        </div>
-
                         <div style="margin-top:12px;">
                             <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
                                 <span>Heute: ${eatenKcal} / ${cat.targetKcal} kcal</span>
@@ -597,16 +542,10 @@
                             </div>
                         </div>
 
-                        <div class="feed-input-row">
-                            <input type="number" id="feedGramsInput_${cat.id}" placeholder="Gramm (g)" step="1">
-                            <button class="btn btn-primary" onclick="submitQuickFeed('${cat.id}')">➕ Füttern</button>
-                        </div>
-
-                        <div class="quick-btn-group">
-                            <div class="q-btn" onclick="setGramInput('${cat.id}', 10)">10g</div>
-                            <div class="q-btn" onclick="setGramInput('${cat.id}', 25)">25g</div>
-                            <div class="q-btn" onclick="setGramInput('${cat.id}', 50)">50g</div>
-                            <div class="q-btn" onclick="setGramInput('${cat.id}', 85)">85g</div>
+                        <!-- Direct Input Feed Box -->
+                        <div class="quick-feed-box">
+                            <input type="number" id="gramsInput_${cat.id}" placeholder="Gramm füttern..." style="margin:0;">
+                            <button class="btn btn-primary" style="width:auto; white-space:nowrap;" onclick="quickFeed('${cat.id}', 'gramsInput_${cat.id}')">Füttern</button>
                         </div>
 
                         ${feedLogsHtml}
@@ -634,8 +573,8 @@
                 <button class="btn" style="width:auto; margin-bottom:15px;" onclick="switchTab('cats')">← Zurück zur Übersicht</button>
                 
                 <div class="chrome-card">
-                    <div class="cat-header">
-                        <img src="${cat.photo || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150'}" class="cat-avatar" style="width:90px; height:90px;">
+                    <div class="cat-tile">
+                        <img src="${cat.photo || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150'}" class="cat-avatar" style="width:85px; height:85px;">
                         <div style="flex:1;">
                             <h2>${cat.name}</h2>
                             <p style="font-size:0.85rem; color:var(--text-muted);">${cat.weight} kg • ${cat.targetKcal} kcal Ziel</p>
@@ -644,7 +583,7 @@
                         </div>
                     </div>
                     
-                    <button class="btn" style="width:100%; margin-top:14px;" onclick="editCat('${cat.id}')">✏️ Katze Bearbeiten</button>
+                    <button class="btn" style="margin-top:15px;" onclick="editCat('${cat.id}')">✏️ Katze Bearbeiten</button>
 
                     <div style="margin-top:15px;">
                         <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
@@ -668,7 +607,7 @@
                     <div style="margin:10px 0;">
                         <input type="text" id="vetTitle" placeholder="Grund (z.B. Impfung)" style="margin-bottom:6px;">
                         <input type="datetime-local" id="vetDate" style="margin-bottom:6px;">
-                        <button class="btn btn-primary" style="width:100%;" onclick="addVetTermin('${cat.id}')">Termin Hinzufügen</button>
+                        <button class="btn btn-primary" onclick="addVetTermin('${cat.id}')">Termin Hinzufügen</button>
                     </div>
                     <ul style="list-style:none; font-size:0.85rem;">
                         ${(appData.vet.filter(v => v.catId === cat.id)).map(v => `<li style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;"><span>${v.title} (${new Date(v.date).toLocaleString('de-DE')})</span><button class="btn btn-danger" style="width:auto; padding:2px 6px; font-size:0.7rem;" onclick="confirmDelete('vet', '${v.id}')">x</button></li>`).join('') || 'Keine Termine'}
@@ -678,7 +617,7 @@
                 <div class="chrome-card">
                     <h3>Notizen</h3>
                     <textarea id="catNotes" style="height:80px;" onchange="saveNotes('${cat.id}', this.value)">${cat.notes || ''}</textarea>
-                    <button class="btn btn-danger" style="width:100%; margin-top:10px;" onclick="confirmDelete('cat', '${cat.id}')">Katze Löschen</button>
+                    <button class="btn btn-danger" onclick="confirmDelete('cat', '${cat.id}')" style="margin-top:10px;">Katze Löschen</button>
                 </div>
             `;
         }
@@ -733,35 +672,6 @@
             });
         }
 
-        function renderFoodView() {
-            let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h2>Futterbank</h2><button class="btn btn-primary" style="width:auto;" onclick="openFoodForm()">+ Futter</button></div>';
-
-            if(appData.foods.length === 0) return html + '<div class="chrome-card" style="text-align:center;">Noch kein Futter gespeichert.</div>';
-
-            ['nass', 'trocken', 'snack'].forEach(catKey => {
-                const title = catKey === 'nass' ? '🥣 Nassfutter' : catKey === 'trocken' ? '🌾 Trockenfutter' : '🍬 Leckerlis';
-                const items = appData.foods.filter(f => f.category === catKey);
-
-                html += `<h3 style="margin:15px 0 8px 0; color:var(--text-muted);">${title}</h3>`;
-                items.forEach(food => {
-                    html += `
-                        <div class="chrome-card" style="padding:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <img src="${food.photo || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=100'}" style="width:45px; height:45px; border-radius:8px; object-fit:cover;">
-                                <div>
-                                    <b>${food.name}</b>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">${food.kcalPer100g} kcal / 100g</div>
-                                </div>
-                            </div>
-                            <button class="btn btn-danger" style="width:auto; padding:4px 8px;" onclick="confirmDelete('food', '${food.id}')">Löschen</button>
-                        </div>
-                    `;
-                });
-            });
-
-            return html;
-        }
-
         function openCatModal() {
             document.getElementById('catModalTitle').innerText = 'Katze anlegen';
             document.getElementById('editCatId').value = '';
@@ -769,6 +679,7 @@
             document.getElementById('catWeight').value = '';
             document.getElementById('catTargetKcal').value = '';
             document.getElementById('catBirthdate').value = '';
+            document.getElementById('catPhotoPreview').value = '';
             document.getElementById('catModal').classList.add('active');
         }
 
@@ -825,10 +736,7 @@
 
             if(!name || !kcalPer100g) return alert('Bitte Name und Kalorien pro 100g angeben!');
 
-            const newFood = { id: Date.now().toString(), name, category, kcalPer100g, photo };
-            appData.foods.push(newFood);
-            if(!activeFoodId) activeFoodId = newFood.id;
-
+            appData.foods.push({ id: Date.now().toString(), name, category, kcalPer100g, photo });
             saveData();
             closeModal('foodModal');
         }
@@ -838,13 +746,7 @@
         function confirmDelete(type, id) {
             pendingDeleteType = type; pendingDeleteId = id;
             document.getElementById('confirmTitle').innerText = 'Eintrag Löschen?';
-            
-            if(type === 'feedLog') {
-                document.getElementById('confirmText').innerText = 'Möchtest du diesen Fütterungseintrag wirklich löschen? Die Kalorien werden automatisch abgezogen.';
-            } else {
-                document.getElementById('confirmText').innerText = 'Möchtest du diesen Eintrag wirklich unwiderruflich löschen?';
-            }
-
+            document.getElementById('confirmText').innerText = 'Möchtest du diesen Eintrag wirklich löschen?';
             document.getElementById('confirmBtn').onclick = executeDelete;
             document.getElementById('confirmModal').classList.add('active');
         }
@@ -855,14 +757,42 @@
                 switchTab('cats');
             } else if(pendingDeleteType === 'food') {
                 appData.foods = appData.foods.filter(f => f.id !== pendingDeleteId);
-                if(activeFoodId === pendingDeleteId) activeFoodId = appData.foods.length > 0 ? appData.foods[0].id : null;
             } else if(pendingDeleteType === 'vet') {
                 appData.vet = appData.vet.filter(v => v.id !== pendingDeleteId);
-            } else if(pendingDeleteType === 'feedLog') {
+            } else if(pendingDeleteType === 'log') {
                 appData.logs = appData.logs.filter(l => l.id !== pendingDeleteId);
             }
             saveData();
             closeModal('confirmModal');
+        }
+
+        function renderFoodView() {
+            let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h2>Futterbank</h2><button class="btn btn-primary" style="width:auto;" onclick="openFoodForm()">+ Futter</button></div>';
+
+            if(appData.foods.length === 0) return html + '<div class="chrome-card" style="text-align:center;">Noch kein Futter gespeichert.</div>';
+
+            ['nass', 'trocken', 'snack'].forEach(catKey => {
+                const title = catKey === 'nass' ? '🥣 Nassfutter' : catKey === 'trocken' ? '🌾 Trockenfutter' : '🍬 Leckerlis';
+                const items = appData.foods.filter(f => f.category === catKey);
+
+                html += `<h3 style="margin:15px 0 8px 0; color:var(--text-muted);">${title}</h3>`;
+                items.forEach(food => {
+                    html += `
+                        <div class="chrome-card" style="padding:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <img src="${food.photo || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=100'}" style="width:45px; height:45px; border-radius:8px; object-fit:cover;">
+                                <div>
+                                    <b>${food.name}</b>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">${food.kcalPer100g} kcal / 100g</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger" style="width:auto; padding:4px 8px;" onclick="confirmDelete('food', '${food.id}')">Löschen</button>
+                        </div>
+                    `;
+                });
+            });
+
+            return html;
         }
 
         function addWeight(catId) {
