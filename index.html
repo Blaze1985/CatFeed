@@ -102,7 +102,7 @@
         .nav-btn {
             background: none; border: none; color: var(--text-muted);
             display: flex; flex-direction: column; align-items: center; gap: 4px;
-            font-size: 0.75rem; font-weight: 600; cursor: pointer; width: 50%;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; width: 33%;
         }
 
         .nav-btn.active { color: var(--accent-cyan); }
@@ -191,7 +191,7 @@
 
     <header>
         <div class="logo-text">CatCal</div>
-        <div class="sync-badge" onclick="openSyncModal()">
+        <div class="sync-badge" onclick="switchTab('sync')">
             <div class="sync-dot" id="syncDot"></div>
             <span id="syncText">PIN Sync</span>
         </div>
@@ -209,6 +209,10 @@
         <button class="nav-btn" id="navFood" onclick="switchTab('food')">
             <svg viewBox="0 0 24 24"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.46 3.9 3.45 4.38l-.95 7.62h2l.95-7.62C10.54 12.9 12 11.12 12 9V2h-1v7zm7-7v18h2V2h-2z"/></svg>
             Futterbank
+        </button>
+        <button class="nav-btn" id="navSync" onclick="switchTab('sync')">
+            <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            Sync
         </button>
     </nav>
 
@@ -289,17 +293,6 @@
         </div>
     </div>
 
-    <!-- Modal: Sync -->
-    <div class="modal" id="syncModal">
-        <div class="modal-content">
-            <h3>Geräte Synchronisieren</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 10px 0;">Gib auf iPhone & Samsung denselben Raum-Code ein (z.B. "meinekatzen123"), um deine Daten abzugleichen.</p>
-            <input type="text" id="syncPinInput" placeholder="z.B. meinekatzen123">
-            <button class="btn btn-primary" onclick="saveSyncPin()">Verbinden</button>
-            <button class="btn" onclick="closeModal('syncModal')" style="margin-top: 10px;">Schließen</button>
-        </div>
-    </div>
-
     <script>
         let appData = { cats: [], foods: [], logs: [], vet: [], weights: [] };
         let currentTab = 'cats';
@@ -323,7 +316,6 @@
         }
 
         function saveData() {
-            // Instantly update Local Storage for instant UI feedback
             localStorage.setItem('catcal_data', JSON.stringify(appData));
             render();
             if(syncPin) pushCloudData();
@@ -358,7 +350,6 @@
         }
 
         function getBinIdFromPin(pin) {
-            // Generate a simple deterministic ID hash from the PIN text
             let hash = 0;
             for (let i = 0; i < pin.length; i++) {
                 hash = ((hash << 5) - hash) + pin.charCodeAt(i);
@@ -377,20 +368,32 @@
             }
         }
 
-        function openSyncModal() {
-            document.getElementById('syncPinInput').value = syncPin;
-            document.getElementById('syncModal').classList.add('active');
-        }
-
-        function saveSyncPin() {
-            syncPin = document.getElementById('syncPinInput').value.trim();
+        function saveSyncPinFromTab() {
+            const val = document.getElementById('syncPinTabInput').value.trim();
+            syncPin = val;
             localStorage.setItem('catcal_pin', syncPin);
-            closeModal('syncModal');
             if(syncPin) {
                 document.getElementById('syncText').innerText = 'PIN: ' + syncPin;
                 document.getElementById('syncDot').classList.add('online');
                 fetchCloudData();
+                alert('PIN gespeichert! Synchronisation gestartet.');
+            } else {
+                document.getElementById('syncText').innerText = 'PIN Sync';
+                document.getElementById('syncDot').classList.remove('online');
             }
+            render();
+        }
+
+        async function manualPush() {
+            if(!syncPin) return alert('Bitte zuerst einen PIN/Raum-Code eingeben!');
+            await pushCloudData();
+            alert('Daten erfolgreich in die Cloud übertragen!');
+        }
+
+        async function manualPull() {
+            if(!syncPin) return alert('Bitte zuerst einen PIN/Raum-Code eingeben!');
+            await fetchCloudData();
+            alert('Daten erfolgreich aus der Cloud geladen!');
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -400,6 +403,7 @@
             if(tab !== 'catDetail') activeCatId = null;
             document.getElementById('navCats').classList.toggle('active', tab === 'cats' || tab === 'catDetail');
             document.getElementById('navFood').classList.toggle('active', tab === 'food');
+            document.getElementById('navSync').classList.toggle('active', tab === 'sync');
             render();
         }
 
@@ -430,6 +434,13 @@
 
         function renderQuickFeedBar() {
             const bar = document.getElementById('quickFeedBar');
+            if(currentTab === 'sync') {
+                bar.style.display = 'none';
+                return;
+            } else {
+                bar.style.display = 'flex';
+            }
+
             if(appData.foods.length === 0) {
                 bar.innerHTML = '<span class="quick-feed-title">Wisch-Menü:</span> <span style="font-size:0.8rem; color:var(--text-muted);">Erstelle unten dein erstes Futter</span>';
                 return;
@@ -479,7 +490,36 @@
             const content = document.getElementById('appContent');
             if(currentTab === 'cats') content.innerHTML = renderCatsView();
             else if(currentTab === 'food') content.innerHTML = renderFoodView();
+            else if(currentTab === 'sync') content.innerHTML = renderSyncView();
             else if(currentTab === 'catDetail') content.innerHTML = renderCatDetailView();
+        }
+
+        function renderSyncView() {
+            return `
+                <div class="chrome-card">
+                    <h2>🔄 Cloud-Synchronisation</h2>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin:10px 0;">
+                        Nutze auf allen deinen Geräten (iPhone & Samsung Galaxy) denselben PIN-Code, um die Daten abzugleichen.
+                    </p>
+
+                    <label style="font-size:0.85rem; font-weight:bold;">Dein Raum-PIN / Synchronisations-Code:</label>
+                    <input type="text" id="syncPinTabInput" value="${syncPin}" placeholder="z.B. meinekatzen123">
+
+                    <button class="btn btn-primary" onclick="saveSyncPinFromTab()">PIN Speichern / Verbinden</button>
+                </div>
+
+                <div class="chrome-card">
+                    <h3>Manuelle Cloud-Aktionen</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                        Verwende diese Buttons, um deine Daten manuell an die Cloud zu senden oder vom Partner-Handy zu laden.
+                    </p>
+
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn btn-primary" onclick="manualPush()">☁️ Cloud Aktualisieren (Senden)</button>
+                        <button class="btn" onclick="manualPull()">📥 Daten aus Cloud Laden (Empfangen)</button>
+                    </div>
+                </div>
+            `;
         }
 
         function renderCatsView() {
@@ -542,7 +582,6 @@
                             </div>
                         </div>
 
-                        <!-- Direct Input Feed Box -->
                         <div class="quick-feed-box">
                             <input type="number" id="gramsInput_${cat.id}" placeholder="Gramm füttern..." style="margin:0;">
                             <button class="btn btn-primary" style="width:auto; white-space:nowrap;" onclick="quickFeed('${cat.id}', 'gramsInput_${cat.id}')">Füttern</button>
